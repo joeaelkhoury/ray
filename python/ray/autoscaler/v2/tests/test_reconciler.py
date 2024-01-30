@@ -4,8 +4,8 @@ import sys
 
 import pytest  # noqa
 
-from ray.autoscaler.v2.tests.util import create_instance
 from ray.autoscaler.v2.instance_manager.reconciler import RayStateReconciler
+from ray.autoscaler.v2.tests.util import create_instance
 from ray.core.generated.autoscaler_pb2 import (
     ClusterResourceState,
     NodeState,
@@ -14,7 +14,7 @@ from ray.core.generated.autoscaler_pb2 import (
 from ray.core.generated.instance_manager_pb2 import Instance
 
 
-def test_ray_reconciler():
+def test_ray_reconciler_no_op():
 
     # Empty ray state.
     ray_cluster_state = ClusterResourceState(node_states=[])
@@ -24,12 +24,31 @@ def test_ray_reconciler():
     ]
     assert RayStateReconciler.reconcile(ray_cluster_state, im_instances) == {}
 
+    # Unknown ray node status - no action.
+    im_instances = [
+        create_instance(
+            "i-1", status=Instance.ALLOCATED, cloud_instance_id="c-1"
+        ),  # To be reconciled.
+    ]
+    ray_cluster_state = ClusterResourceState(
+        node_states=[
+            NodeState(node_id=b"r-1", status=NodeStatus.UNSPECIFIED, instance_id="c-1"),
+        ]
+    )
+    updates = RayStateReconciler.reconcile(ray_cluster_state, im_instances)
+    assert list(updates.keys()) == []
+
+
+def test_ray_reconciler_new_ray():
     # A newly running ray node with matching cloud instance id
     ray_cluster_state = ClusterResourceState(
         node_states=[
             NodeState(node_id=b"r-1", status=NodeStatus.RUNNING, instance_id="c-1"),
         ]
     )
+    im_instances = [
+        create_instance("i-1", status=Instance.ALLOCATED, cloud_instance_id="c-1"),
+    ]
     updates = RayStateReconciler.reconcile(ray_cluster_state, im_instances)
     assert list(updates.keys()) == ["i-1"]
     assert updates["i-1"].new_instance_status == Instance.RAY_RUNNING
@@ -37,7 +56,9 @@ def test_ray_reconciler():
     # A newly running ray node w/o matching cloud instance id.
     ray_cluster_state = ClusterResourceState(
         node_states=[
-            NodeState(node_id=b"r-1", status=NodeStatus.RUNNING, instance_id="unknown"),
+            NodeState(
+                node_id=b"r-1", status=NodeStatus.RUNNING, instance_id="c-unknown"
+            ),
         ]
     )
     updates = RayStateReconciler.reconcile(ray_cluster_state, im_instances)
@@ -61,6 +82,8 @@ def test_ray_reconciler():
     updates = RayStateReconciler.reconcile(ray_cluster_state, im_instances)
     assert list(updates.keys()) == []
 
+
+def test_ray_reconciler_stopping_ray():
     # draining ray nodes
     im_instances = [
         create_instance(
@@ -84,6 +107,8 @@ def test_ray_reconciler():
     assert list(updates.keys()) == ["i-1"]
     assert updates["i-1"].new_instance_status == Instance.RAY_STOPPING
 
+
+def test_ray_reconciler_stopped_ray():
     # dead ray nodes
     im_instances = [
         create_instance(
@@ -108,20 +133,6 @@ def test_ray_reconciler():
     assert list(updates.keys()) == ["i-1", "i-2"]
     assert updates["i-1"].new_instance_status == Instance.RAY_STOPPED
     assert updates["i-2"].new_instance_status == Instance.RAY_STOPPED
-
-    # Unknown ray node status - no action.
-    im_instances = [
-        create_instance(
-            "i-1", status=Instance.ALLOCATED, cloud_instance_id="c-1"
-        ),  # To be reconciled.
-    ]
-    ray_cluster_state = ClusterResourceState(
-        node_states=[
-            NodeState(node_id=b"r-1", status=NodeStatus.UNSPECIFIED, instance_id="c-1"),
-        ]
-    )
-    updates = RayStateReconciler.reconcile(ray_cluster_state, im_instances)
-    assert list(updates.keys()) == []
 
 
 if __name__ == "__main__":

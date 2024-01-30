@@ -230,8 +230,8 @@ class InstanceUtilTest(unittest.TestCase):
         expected_reachable[Instance.REQUESTED] |= {Instance.REQUESTED}
 
         for s, expected_reachable in expected_reachable.items():
-            assert InstanceUtil.reachable_from(s) == expected_reachable, (
-                f"reachable_from({s}) = {InstanceUtil.reachable_from(s)} "
+            assert InstanceUtil.get_reachable_statuses(s) == expected_reachable, (
+                f"reachable_from({s}) = {InstanceUtil.get_reachable_statuses(s)} "
                 f"!= {expected_reachable}"
             )
 

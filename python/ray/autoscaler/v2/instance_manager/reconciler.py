@@ -218,7 +218,8 @@ class RayStateReconciler(IReconciler):
 
         if (
             cur_im_status == reconciled_im_status
-            or cur_im_status in InstanceUtil.reachable_from(reconciled_im_status)
+            or cur_im_status
+            in InstanceUtil.get_reachable_statuses(reconciled_im_status)
         ):
             # No need to reconcile if the instance is already in the reconciled status
             # or has already transitioned beyond it.

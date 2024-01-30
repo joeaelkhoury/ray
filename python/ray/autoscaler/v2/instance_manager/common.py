@@ -77,7 +77,9 @@ class InstanceUtil:
         Returns True if the instance is in a status where it may transition
         to RAY_RUNNING status.
         """
-        return Instance.RAY_RUNNING in InstanceUtil.reachable_from(instance_status)
+        return Instance.RAY_RUNNING in InstanceUtil.get_reachable_statuses(
+            instance_status
+        )
 
     @staticmethod
     def set_status(
@@ -271,7 +273,7 @@ class InstanceUtil:
         return ts_list
 
     @classmethod
-    def reachable_from(
+    def get_reachable_statuses(
         cls,
         instance_status: Instance.InstanceStatus,
     ) -> Set["Instance.InstanceStatus"]:
